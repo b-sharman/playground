@@ -30,7 +30,6 @@ async def handle_new_connection(ws):
     """ Start server communications with ws and add ws to CONNECTIONS. """
     # needs to be an inline function so it can be wrapped in a task
     async def add_to_connections():
-        logger.log(logging.DEBUG, "reached this point in h_n_c")
         # meanwhile, add the connection to the global CONNECTIONS set
         CONNECTIONS.add(ws)
         try:
