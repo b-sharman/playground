@@ -1,1 +1,2 @@
+SERVER_START_KEYWORD = "start"
 PORT = 4320
