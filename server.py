@@ -27,7 +27,7 @@ async def handler(ws):
         await ws.send(f"Hello, {message}!")
 
 async def handle_new_connection(ws):
-
+    """ Start server communications with ws and add ws to CONNECTIONS. """
     # needs to be an inline function so it can be wrapped in a task
     async def add_to_connections():
         logger.log(logging.DEBUG, "reached this point in h_n_c")
