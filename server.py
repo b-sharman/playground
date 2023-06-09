@@ -1,9 +1,11 @@
 import asyncio
+import json
 import logging
 import websockets
 
 import aioconsole
 
+import bbutils
 import constants
 
 CONNECTIONS = set()
@@ -15,16 +17,24 @@ async def listen_for_start(ws):
         output = await aioconsole.ainput()
 
     logger.log(logging.INFO, "received start message")
-    message_all("start")
+    message_all({"type": constants.Msg.START})
 
+@bbutils.check_message_valid
 def message_all(message):
-    logger.log(logging.DEBUG, CONNECTIONS)
-    websockets.broadcast(CONNECTIONS, message)
-    logger.log(logging.DEBUG, f"broadcasted the following: {message}")
+    """ Serialize message to JSON and broadcast it to all members of CONNECTIONS. """
+    logger.log(logging.DEBUG, f"{CONNECTIONS=}")
+    data = json.dumps(message)
+    websockets.broadcast(CONNECTIONS, data)
+    logger.log(logging.DEBUG, f"broadcasted the following: {data}")
 
 async def handler(ws):
-    async for message in ws:
-        await ws.send(f"Hello, {message}!")
+    async for json_message in ws:
+        message = json.loads(json_message)
+        if message["type"] == constants.Msg.DEBUG:
+            await ws.send(json.dumps({
+                "type": constants.Msg.DEBUG,
+                "data": f"Hello, {message['data']}!"
+            }))
 
 async def handle_new_connection(ws):
     """ Start server communications with ws and add ws to CONNECTIONS. """
