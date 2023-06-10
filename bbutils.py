@@ -19,7 +19,7 @@ def is_message_valid(message: Message) -> None:
         raise ValueError("message has no type")
 
     # type must be specified in constants.Msg
-    if message["type"] not in [tp for tp in constants.Msg]:
+    if message["type"] not in iter(constants.Msg):
         raise ValueError("invalid message type")
 
 
