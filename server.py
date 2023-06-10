@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import websockets
+import websockets.server  # only for typing, is that bad?
 
 import aioconsole
 
@@ -10,7 +11,8 @@ import constants
 
 CONNECTIONS = set()
 
-async def listen_for_start(ws):
+async def listen_for_start(ws) -> None:
+    """ Broadcast a START message upon corresponding keyboard entry. """
     print(f"Type '{constants.SERVER_START_KEYWORD}' at any time to start the game.")
     output = None
     while output != constants.SERVER_START_KEYWORD:
@@ -20,14 +22,15 @@ async def listen_for_start(ws):
     message_all({"type": constants.Msg.START})
 
 @bbutils.check_message_valid
-def message_all(message):
+def message_all(message: bbutils.Message) -> None:
     """ Serialize message to JSON and broadcast it to all members of CONNECTIONS. """
     logger.log(logging.DEBUG, f"{CONNECTIONS=}")
     data = json.dumps(message)
     websockets.broadcast(CONNECTIONS, data)
     logger.log(logging.DEBUG, f"broadcasted the following: {data}")
 
-async def handler(ws):
+async def handler(ws) -> None:
+    """ Listen for messages coming in from client ws. """
     async for json_message in ws:
         message = json.loads(json_message)
         if message["type"] == constants.Msg.DEBUG:
@@ -36,24 +39,20 @@ async def handler(ws):
                 "data": f"Hello, {message['data']}!"
             }))
 
-async def handle_new_connection(ws):
+async def handle_new_connection(ws: websockets.server.WebSocketServer) -> None:
     """ Start server communications with ws and add ws to CONNECTIONS. """
-    # needs to be an inline function so it can be wrapped in a task
-    async def add_to_connections():
-        # meanwhile, add the connection to the global CONNECTIONS set
+    async with asyncio.TaskGroup() as tg:
+        # start interacting with client
+        client_handler = tg.create_task(handler(ws))
+
+        # add ws to the CONNECTIONS set and remove it upon disconnect
         CONNECTIONS.add(ws)
         try:
             await ws.wait_closed()
         finally:
             CONNECTIONS.remove(ws)
 
-    async with asyncio.TaskGroup() as tg:
-        # start interacting with client
-        client_handler = tg.create_task(handler(ws))
-        # add ws to the CONNECTIONS set and remove it upon disconnect
-        add_task = tg.create_task(add_to_connections())
-
-async def main():
+async def main() -> None:
     async with websockets.serve(
         handle_new_connection,
         "localhost",
