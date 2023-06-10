@@ -8,11 +8,13 @@ import aioconsole
 
 import constants
 
+
 async def data_entry(ws: websockets.client.WebSocketClientProtocol) -> None:
-    """ Listen for keyboard input and send it to the server. """
+    """Listen for keyboard input and send it to the server."""
     while True:
         data = await aioconsole.ainput("Enter data: ")
         await ws.send(json.dumps({"type": constants.Msg.DEBUG, "data": data}))
+
 
 async def main() -> None:
     async with websockets.connect(f"ws://localhost:{constants.PORT}") as ws:
@@ -24,8 +26,9 @@ async def main() -> None:
                 if message["type"] == constants.Msg.START:
                     print("Starting now!")
 
+
 if __name__ == "__main__":
-    logger = logging.getLogger('websockets')
+    logger = logging.getLogger("websockets")
     logger.setLevel(logging.DEBUG)
     logger.addHandler(logging.StreamHandler())
 
