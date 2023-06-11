@@ -43,6 +43,10 @@ async def handler(ws, player_id) -> None:
     async for json_message in ws:
         message = json.loads(json_message)
         match message["type"]:
+            case constants.Msg.GREET:
+                # TODO: find some way to prevent name collision
+                #       (i.e., more than one player requesting the same name)
+                print(f"{message['name']} has joined.")
             case constants.Msg.REQUEST:
                 message_all(
                     {
@@ -50,16 +54,6 @@ async def handler(ws, player_id) -> None:
                         "id": player_id,
                         "rq": message["rq"],
                     }
-                )
-
-            case constants.Msg.DEBUG:
-                await ws.send(
-                    json.dumps(
-                        {
-                            "type": constants.Msg.DEBUG,
-                            "data": f"Hello, {message['data']}!",
-                        }
-                    )
                 )
 
 

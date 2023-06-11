@@ -11,9 +11,12 @@ import constants
 
 
 class Player:
-    def __init__(self, player_id: Optional[int] = None) -> None:
-        self.pos = [0, 0]
+    def __init__(self, name: str, player_id: Optional[int] = None) -> None:
+        self.name = name
         self.player_id = player_id
+
+        # TODO: remove this until implemented
+        self.pos = [0, 0]
 
     async def command_entry(
         self, ws: websockets.client.WebSocketClientProtocol
@@ -42,11 +45,15 @@ class Player:
                     )
                 )
 
+    async def greet(self, ws: websockets.client.WebSocketClientProtocol) -> None:
+        await ws.send(json.dumps({"type": constants.Msg.GREET, "name": self.name}))
+
 
 async def main() -> None:
-    player = Player()
+    player = Player(name=input("Enter your name: "))
     async with websockets.connect(f"ws://localhost:{constants.PORT}") as ws:
         async with asyncio.TaskGroup() as tg:
+            tg.create_task(player.greet(ws))
             tg.create_task(player.command_entry(ws))
 
             while True:
