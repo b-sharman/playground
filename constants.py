@@ -9,5 +9,20 @@ SERVER_START_KEYWORD = "start"
 class Msg(enum.IntEnum):
     """Enum for message types."""
 
-    START = enum.auto()
-    DEBUG = enum.auto()
+    START = enum.auto()    # game starts
+    REQUEST = enum.auto()  # client requests server to move, shoot, etc.
+    APPROVE = enum.auto()  # server broadcasts approval to a REQUEST
+    DEBUG = enum.auto()    # for sending data strings
+
+
+@enum.unique
+class Rq(enum.IntEnum):
+    """
+    Enum for request types.
+
+    A request is a message sent by a player asking to move, shoot, etc.
+    """
+
+    UP = enum.auto()
+    DOWN = enum.auto()
+    SHOOT = enum.auto()

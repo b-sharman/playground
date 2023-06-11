@@ -11,6 +11,8 @@ import constants
 
 CONNECTIONS = set()
 
+current_id = 0
+
 
 async def listen_for_start(ws) -> None:
     """Broadcast a START message upon corresponding keyboard entry."""
@@ -25,40 +27,61 @@ async def listen_for_start(ws) -> None:
 
 @bbutils.check_message_valid
 def message_all(message: bbutils.Message) -> None:
-    """Serialize message to JSON and broadcast it to all members of CONNECTIONS."""
+    """
+    Serialize message to JSON and broadcast it to all clients.
+
+    Clients are stored in the global CONNECTIONS set.
+    """
     logger.log(logging.DEBUG, f"{CONNECTIONS=}")
     data = json.dumps(message)
     websockets.broadcast(CONNECTIONS, data)
     logger.log(logging.DEBUG, f"broadcasted the following: {data}")
 
 
-async def handler(ws) -> None:
+async def handler(ws, player_id) -> None:
     """Listen for messages coming in from client ws."""
     async for json_message in ws:
         message = json.loads(json_message)
-        if message["type"] == constants.Msg.DEBUG:
-            await ws.send(
-                json.dumps(
+        match message["type"]:
+            case constants.Msg.REQUEST:
+                message_all(
                     {
-                        "type": constants.Msg.DEBUG,
-                        "data": f"Hello, {message['data']}!",
+                        "type": constants.Msg.APPROVE,
+                        "id": player_id,
+                        "rq": message["rq"],
                     }
                 )
-            )
+
+            case constants.Msg.DEBUG:
+                await ws.send(
+                    json.dumps(
+                        {
+                            "type": constants.Msg.DEBUG,
+                            "data": f"Hello, {message['data']}!",
+                        }
+                    )
+                )
 
 
 async def handle_new_connection(ws: websockets.server.WebSocketServer) -> None:
     """Start server communications with ws and add ws to CONNECTIONS."""
+    global current_id
+
+    player_id = current_id
+    current_id += 1
+
     async with asyncio.TaskGroup() as tg:
         # start interacting with client
-        client_handler = tg.create_task(handler(ws))
+        client_handler = tg.create_task(handler(ws, player_id))
 
         # add ws to the CONNECTIONS set and remove it upon disconnect
         CONNECTIONS.add(ws)
+        logger.log(logging.DEBUG, f"added player with id {player_id}")
         try:
             await ws.wait_closed()
         finally:
             CONNECTIONS.remove(ws)
+            logger.log(logging.DEBUG, f"removed player with id {player_id}")
 
 
 async def main() -> None:
