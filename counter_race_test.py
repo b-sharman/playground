@@ -8,12 +8,14 @@ import asyncio
 current_id = 0
 all_ids = []
 
+
 async def mock_new_connection() -> None:
     global all_ids, current_id
 
     my_id = current_id
     all_ids.append(current_id)
     current_id += 1
+
 
 async def main() -> None:
     global all_ids, current_id
@@ -29,8 +31,9 @@ async def main() -> None:
 
     print("checking for duplicates...")
     for i, x in enumerate(all_ids):
-        if x in all_ids[i+1:]:
+        if x in all_ids[i + 1 :]:
             print("duplicate id detected")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
