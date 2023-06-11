@@ -37,13 +37,13 @@ def is_message_valid(message: Message) -> None:
     if message["type"] == constants.Msg.REQUEST and "rq" not in message:
         raise ValueError("REQUEST message does not have rq")
 
-    # APPROVE must have id
-    if message["type"] == constants.Msg.APPROVE and "id" not in message:
-        raise ValueError("APPROVE message does not have id")
-
-    # APPROVE must have rq
-    if message["type"] == constants.Msg.APPROVE and "rq" not in message:
-        raise ValueError("APPROVE message does not have rq")
+    if message["type"] == constants.Msg.APPROVE:
+        # APPROVE must have id
+        if "id" not in message:
+            raise ValueError("APPROVE message does not have id")
+        # APPROVE must have rq
+        if "rq" not in message:
+            raise ValueError("APPROVE message does not have rq")
 
 
 def check_message_valid(func: Callable) -> Callable:
