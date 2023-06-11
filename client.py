@@ -37,7 +37,6 @@ class Player:
                     json.dumps(
                         {
                             "type": constants.Msg.REQUEST,
-                            "id": self.player_id,
                             "rq": rq,
                         }
                     )

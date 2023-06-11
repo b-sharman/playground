@@ -12,7 +12,6 @@ class Msg(enum.IntEnum):
     START = enum.auto()    # game starts
     REQUEST = enum.auto()  # client requests server to move, shoot, etc.
     APPROVE = enum.auto()  # server broadcasts approval to a REQUEST
-    DEBUG = enum.auto()    # for sending data strings
 
 
 @enum.unique
