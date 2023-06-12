@@ -1,7 +1,10 @@
 """ Shared code between client and server. """
 
 from collections.abc import Callable
+import json
 from typing import Any, NewType
+import websockets.client
+import websockets.server
 
 import constants
 
@@ -30,7 +33,7 @@ def is_message_valid(message: Message) -> None:
         raise ValueError("client id is not int")
 
     # name must be str
-    if "name" in message and isinstance(message["name"], str):
+    if "name" in message and not isinstance(message["name"], str):
         raise ValueError("client name is not str")
 
     # rq must be specified in constants.Rq
@@ -56,16 +59,23 @@ def is_message_valid(message: Message) -> None:
             raise ValueError("GREET message does not have name")
 
 
-def check_message_valid(func: Callable) -> Callable:
-    """
-    Decorator for any function that assumes message validity.
+class _BBSharedProtocol:
+    """WebSocketClientProtocol with send() that enforces JSON format."""
+    async def send(self, message: Message) -> None:
+        """
+        Serialize message to json and call the regular send on it.
 
-    The function must have the message as its first argument.
-    """
-
-    def checker(message: Message, *args, **kwargs) -> Callable[[Message], Any]:
-        # will raise ValueError if message is not valid
+        This method also enforces message validity; it is decorated by
+        check_message_valid.
+        """
+        print("custom send is getting called")
         is_message_valid(message)
-        return func(message, *args, **kwargs)
+        await super().send(json.dumps(message))
 
-    return checker
+
+class BBClientProtocol(_BBSharedProtocol, websockets.client.WebSocketClientProtocol):
+    pass
+
+
+class BBServerProtocol(_BBSharedProtocol, websockets.server.WebSocketServerProtocol):
+    pass

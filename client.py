@@ -8,14 +8,16 @@ import websockets.server
 
 import aioconsole
 
+import bbutils
 import constants
+
 
 class Client:
     def __init__(
         self,
         ws: websockets.server.WebSocketServer,
         name: str,
-        player_id: Optional[int] = None
+        player_id: Optional[int] = None,
     ) -> None:
         self.ws = ws
         self.name = name
@@ -27,7 +29,7 @@ class Client:
         await self.player.run()
 
     async def greet(self) -> None:
-        await self.ws.send(json.dumps({"type": constants.Msg.GREET, "name": self.name}))
+        await self.ws.send({"type": constants.Msg.GREET, "name": self.name})
 
 
 class Player:
@@ -50,18 +52,13 @@ class Player:
                     print("That's not a valid command.")
                     rq = None
             if rq is not None:
-                await self.client.ws.send(
-                    json.dumps(
-                        {
-                            "type": constants.Msg.REQUEST,
-                            "rq": rq,
-                        }
-                    )
-                )
+                await self.client.ws.send({"type": constants.Msg.REQUEST, "rq": rq})
 
 
 async def main() -> None:
-    async with websockets.connect(f"ws://localhost:{constants.PORT}") as ws:
+    async with websockets.connect(
+        f"ws://localhost:{constants.PORT}", create_protocol=bbutils.BBClientProtocol
+    ) as ws:
         client = Client(ws=ws, name=input("Enter your name: "))
         async with asyncio.TaskGroup() as tg:
             tg.create_task(client.greet())

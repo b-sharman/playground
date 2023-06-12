@@ -25,13 +25,15 @@ async def listen_for_start(ws) -> None:
     message_all({"type": constants.Msg.START})
 
 
-@bbutils.check_message_valid
 def message_all(message: bbutils.Message) -> None:
     """
     Serialize message to JSON and broadcast it to all clients.
 
     Clients are stored in the global CLIENTS set.
     """
+    # Check for message validity - raises ValueError if not valid
+    bbutils.is_message_valid(message)
+
     logger.log(logging.DEBUG, f"{CLIENTS=}")
     data = json.dumps(message)
     websockets.broadcast([c.ws for c in CLIENTS], data)
@@ -112,6 +114,7 @@ async def main() -> None:
         Client.handle_new_connection,
         "localhost",
         constants.PORT,
+        create_protocol=bbutils.BBServerProtocol,
         ping_interval=5,
         ping_timeout=10,
     ) as server:
