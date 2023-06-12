@@ -3,24 +3,38 @@ import json
 import logging
 from typing import Optional
 import websockets
-import websockets.client  # only for typing, is that bad?
+import websockets.client
+import websockets.server
 
 import aioconsole
 
 import constants
 
-
-class Player:
-    def __init__(self, name: str, player_id: Optional[int] = None) -> None:
+class Client:
+    def __init__(
+        self,
+        ws: websockets.server.WebSocketServer,
+        name: str,
+        player_id: Optional[int] = None
+    ) -> None:
+        self.ws = ws
         self.name = name
         self.player_id = player_id
 
-        # TODO: remove this until implemented
-        self.pos = [0, 0]
+        self.player = Player(self)
 
-    async def command_entry(
-        self, ws: websockets.client.WebSocketClientProtocol
-    ) -> None:
+    async def run(self) -> None:
+        await self.player.run()
+
+    async def greet(self) -> None:
+        await self.ws.send(json.dumps({"type": constants.Msg.GREET, "name": self.name}))
+
+
+class Player:
+    def __init__(self, client: Client) -> None:
+        self.client = client
+
+    async def run(self) -> None:
         """Interface to send requests to the server."""
         while True:
             # for now it is OK to just hardcode these
@@ -36,7 +50,7 @@ class Player:
                     print("That's not a valid command.")
                     rq = None
             if rq is not None:
-                await ws.send(
+                await self.client.ws.send(
                     json.dumps(
                         {
                             "type": constants.Msg.REQUEST,
@@ -45,16 +59,13 @@ class Player:
                     )
                 )
 
-    async def greet(self, ws: websockets.client.WebSocketClientProtocol) -> None:
-        await ws.send(json.dumps({"type": constants.Msg.GREET, "name": self.name}))
-
 
 async def main() -> None:
-    player = Player(name=input("Enter your name: "))
     async with websockets.connect(f"ws://localhost:{constants.PORT}") as ws:
+        client = Client(ws=ws, name=input("Enter your name: "))
         async with asyncio.TaskGroup() as tg:
-            tg.create_task(player.greet(ws))
-            tg.create_task(player.command_entry(ws))
+            tg.create_task(client.greet())
+            tg.create_task(client.run())
 
             while True:
                 # waits until data is received from the server
@@ -63,7 +74,7 @@ async def main() -> None:
                     case constants.Msg.APPROVE:
                         logger.log(
                             logging.DEBUG,
-                            f"received approve of type {message['rq']} from player {message['id']}",
+                            f"received approve of type {message['rq']} from client {message['id']}",
                         )
                     case constants.Msg.START:
                         print("Starting now!")
