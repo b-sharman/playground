@@ -9,7 +9,7 @@ import aioconsole
 import bbutils
 import constants
 
-CONNECTIONS = set()
+CLIENTS = set()
 
 current_id = 0
 
@@ -30,57 +30,86 @@ def message_all(message: bbutils.Message) -> None:
     """
     Serialize message to JSON and broadcast it to all clients.
 
-    Clients are stored in the global CONNECTIONS set.
+    Clients are stored in the global CLIENTS set.
     """
-    logger.log(logging.DEBUG, f"{CONNECTIONS=}")
+    logger.log(logging.DEBUG, f"{CLIENTS=}")
     data = json.dumps(message)
-    websockets.broadcast(CONNECTIONS, data)
+    websockets.broadcast([c.ws for c in CLIENTS], data)
     logger.log(logging.DEBUG, f"broadcasted the following: {data}")
 
 
-async def handler(ws, player_id) -> None:
-    """Listen for messages coming in from client ws."""
-    async for json_message in ws:
-        message = json.loads(json_message)
-        match message["type"]:
-            case constants.Msg.GREET:
-                # TODO: find some way to prevent name collision
-                #       (i.e., more than one player requesting the same name)
-                print(f"{message['name']} has joined.")
-            case constants.Msg.REQUEST:
-                message_all(
-                    {
-                        "type": constants.Msg.APPROVE,
-                        "id": player_id,
-                        "rq": message["rq"],
-                    }
-                )
+class Player:
+    """
+    Server's representation of a player in a game.
+
+    Whereas Client represents the network connection, this class handles tasks like
+    collision detection, health tracking, etc.
+    """
+    def __init__(self) -> None:
+        self.name = None
 
 
-async def handle_new_connection(ws: websockets.server.WebSocketServer) -> None:
-    """Start server communications with ws and add ws to CONNECTIONS."""
-    global current_id
+class Client:
+    """Server's representation of a network client."""
 
-    player_id = current_id
-    current_id += 1
+    def __init__(
+        self,
+        ws: websockets.server.WebSocketServer,
+        tg: asyncio.TaskGroup
+    ) -> None:
+        """Warning: only create Client instances within the tg context manager."""
+        global current_id
 
-    async with asyncio.TaskGroup() as tg:
-        # start interacting with client
-        client_handler = tg.create_task(handler(ws, player_id))
+        # assign this client a unique id
+        self.client_id = current_id
+        current_id += 1
 
-        # add ws to the CONNECTIONS set and remove it upon disconnect
-        CONNECTIONS.add(ws)
-        logger.log(logging.DEBUG, f"added player with id {player_id}")
-        try:
-            await ws.wait_closed()
-        finally:
-            CONNECTIONS.remove(ws)
-            logger.log(logging.DEBUG, f"removed player with id {player_id}")
+        self.ws = ws
+
+        self.player = Player()
+
+        # start listening to messages coming in from the client
+        handler = tg.create_task(self.handler())
+
+    async def handler(self) -> None:
+        """Listen for messages coming in from client ws."""
+        async for json_message in self.ws:
+            message = json.loads(json_message)
+            match message["type"]:
+                case constants.Msg.GREET:
+                    # TODO: find some way to prevent name collision
+                    #       (i.e., more than one player requesting the same name)
+                    self.player.name = message["name"]
+                    print(f"{message['name']} has joined.")
+                case constants.Msg.REQUEST:
+                    message_all(
+                        {
+                            "type": constants.Msg.APPROVE,
+                            "id": self.client_id,
+                            "rq": message["rq"],
+                        }
+                    )
+
+    @staticmethod
+    async def handle_new_connection(ws: websockets.server.WebSocketServer) -> None:
+        """Start server communications with ws and add ws to CLIENTS."""
+        global CLIENTS
+
+        async with asyncio.TaskGroup() as tg:
+            # add ws to the CLIENTS set and remove it upon disconnect
+            client = Client(ws, tg)
+            CLIENTS.add(client)
+            logger.log(logging.DEBUG, f"added player with id {client.client_id}")
+            try:
+                await client.ws.wait_closed()
+            finally:
+                CLIENTS.remove(client)
+                logger.log(logging.DEBUG, f"removed player with id {client.client_id}")
 
 
 async def main() -> None:
     async with websockets.serve(
-        handle_new_connection,
+        Client.handle_new_connection,
         "localhost",
         constants.PORT,
         ping_interval=5,
