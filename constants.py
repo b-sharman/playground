@@ -11,6 +11,7 @@ class Msg(enum.IntEnum):
 
     APPROVE = enum.auto()  # server broadcasts approval to a REQUEST
     GREET = enum.auto()    # client informs server of name, maybe color, etc.
+    ID = enum.auto()       # server informs client of assigned id
     REQUEST = enum.auto()  # client requests server to move, shoot, etc.
     START = enum.auto()    # game starts
 

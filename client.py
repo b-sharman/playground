@@ -13,15 +13,11 @@ import constants
 
 
 class Client:
-    def __init__(
-        self,
-        ws: websockets.server.WebSocketServer,
-        name: str,
-        player_id: Optional[int] = None,
-    ) -> None:
+    def __init__(self, ws: websockets.server.WebSocketServer, name: str) -> None:
         self.ws = ws
         self.name = name
-        self.player_id = player_id
+
+        self.client_id = None
 
         self.player = Player(self)
 
@@ -35,6 +31,9 @@ class Client:
 class Player:
     def __init__(self, client: Client) -> None:
         self.client = client
+
+        # assigned to constants.Rq.*
+        self.state = None
 
     async def run(self) -> None:
         """Interface to send requests to the server."""
@@ -73,6 +72,13 @@ async def main() -> None:
                             logging.DEBUG,
                             f"received approve of type {message['rq']} from client {message['id']}",
                         )
+                        # Eventually, we will have a list of Players and will search
+                        # through them. For now, we only do something if we are the
+                        # player in question.
+                        if message["id"] == client.client_id:
+                            client.player.state = message["rq"]
+                    case constants.Msg.ID:
+                        client.client_id = message["id"]
                     case constants.Msg.START:
                         print("Starting now!")
 

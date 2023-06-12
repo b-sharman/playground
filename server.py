@@ -100,6 +100,9 @@ class Client:
         async with asyncio.TaskGroup() as tg:
             # add ws to the CLIENTS set and remove it upon disconnect
             client = Client(ws, tg)
+            # Unfortunately, the following line cannot be in Client.__init__ because
+            # __init__ can't be a coroutine
+            await client.ws.send({"type": constants.Msg.ID, "id": client.client_id})
             CLIENTS.add(client)
             logger.log(logging.DEBUG, f"added player with id {client.client_id}")
             try:

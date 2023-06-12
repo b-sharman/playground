@@ -50,13 +50,17 @@ def is_message_valid(message: Message) -> None:
             if "rq" not in message:
                 raise ValueError("APPROVE message does not have rq")
 
-        # REQUEST must have rq
-        case constants.Msg.REQUEST if "rq" not in message:
-            raise ValueError("REQUEST message does not have rq")
+        # ID must have id
+        case constants.Msg.ID if "id" not in message:
+            raise ValueError("ID message does not have id")
 
         # GREET must have name
         case constants.Msg.GREET if "name" not in message:
             raise ValueError("GREET message does not have name")
+
+        # REQUEST must have rq
+        case constants.Msg.REQUEST if "rq" not in message:
+            raise ValueError("REQUEST message does not have rq")
 
 
 class _BBSharedProtocol:
