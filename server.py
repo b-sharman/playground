@@ -22,7 +22,12 @@ async def listen_for_start(ws) -> None:
         output = await aioconsole.ainput()
 
     logger.log(logging.INFO, "received start message")
-    message_all({"type": constants.Msg.START})
+    message_all(
+        {
+            "type": constants.Msg.START,
+            "states": [(c.client_id: c.player.state) for c in CLIENTS],
+        }
+    )
 
 
 def message_all(message: bbutils.Message) -> None:
@@ -49,6 +54,8 @@ class Player:
     """
     def __init__(self) -> None:
         self.name = None
+        # assigned to constants.Rq.*
+        self.state = None
 
 
 class Client:
