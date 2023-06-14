@@ -25,7 +25,7 @@ async def listen_for_start(ws) -> None:
     message_all(
         {
             "type": constants.Msg.START,
-            "states": [(c.client_id: c.player.state) for c in CLIENTS],
+            "states": [(c.client_id, c.player.state) for c in CLIENTS],
         }
     )
 
