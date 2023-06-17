@@ -46,9 +46,9 @@ def is_message_valid(message: Message) -> None:
             # APPROVE must have id
             if "id" not in message:
                 raise ValueError("APPROVE message does not have id")
-            # APPROVE must have rq
-            if "rq" not in message:
-                raise ValueError("APPROVE message does not have rq")
+            # APPROVE must have state
+            if "state" not in message:
+                raise ValueError("APPROVE message does not have state")
 
         # ID must have id
         case constants.Msg.ID if "id" not in message:

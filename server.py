@@ -13,19 +13,24 @@ CLIENTS = set()
 
 current_id = 0
 
+# has the game been started yet?
+game_running = False
 
 async def listen_for_start(ws) -> None:
     """Broadcast a START message upon corresponding keyboard entry."""
+    global game_running
+
     print(f"Type '{constants.SERVER_START_KEYWORD}' at any time to start the game.")
     output = None
     while output != constants.SERVER_START_KEYWORD:
         output = await aioconsole.ainput()
 
     logger.log(logging.INFO, "received start message")
+    game_running = True
     message_all(
         {
             "type": constants.Msg.START,
-            "states": [(c.client_id, c.player.state) for c in CLIENTS],
+            "states": [(c.client_id, c.state) for c in CLIENTS],
         }
     )
 
@@ -45,19 +50,6 @@ def message_all(message: bbutils.Message) -> None:
     logger.log(logging.DEBUG, f"broadcasted the following: {data}")
 
 
-class Player:
-    """
-    Server's representation of a player in a game.
-
-    Whereas Client represents the network connection, this class handles tasks like
-    collision detection, health tracking, etc.
-    """
-    def __init__(self) -> None:
-        self.name = None
-        # assigned to constants.Rq.*
-        self.state = None
-
-
 class Client:
     """Server's representation of a network client."""
 
@@ -75,7 +67,8 @@ class Client:
 
         self.ws = ws
 
-        self.player = Player()
+        # server.Client.state is mirrored by client.Player.__dict__
+        self.state: dict[str, Any] = {}
 
         # start listening to messages coming in from the client
         handler = tg.create_task(self.handler())
@@ -88,14 +81,14 @@ class Client:
                 case constants.Msg.GREET:
                     # TODO: find some way to prevent name collision
                     #       (i.e., more than one player requesting the same name)
-                    self.player.name = message["name"]
+                    self.state["name"] = message["name"]
                     print(f"{message['name']} has joined.")
                 case constants.Msg.REQUEST:
                     message_all(
                         {
                             "type": constants.Msg.APPROVE,
                             "id": self.client_id,
-                            "rq": message["rq"],
+                            "state": {"rq": message["rq"]},
                         }
                     )
 
@@ -103,6 +96,12 @@ class Client:
     async def handle_new_connection(ws: websockets.server.WebSocketServer) -> None:
         """Start server communications with ws and add ws to CLIENTS."""
         global CLIENTS
+
+        # prevent new clients from connecting if the game has already started
+        if game_running:
+            await ws.close()
+            logger.log(logging.INFO, "rejected a player because the game has already started")
+            return
 
         async with asyncio.TaskGroup() as tg:
             # add ws to the CLIENTS set and remove it upon disconnect
