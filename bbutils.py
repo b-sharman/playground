@@ -65,6 +65,7 @@ def is_message_valid(message: Message) -> None:
 
 class _BBSharedProtocol:
     """WebSocketClientProtocol with send() that enforces JSON format."""
+
     async def send(self, message: Message) -> None:
         """
         Serialize message to json and call the regular send on it.
@@ -72,7 +73,6 @@ class _BBSharedProtocol:
         This method also enforces message validity; it is decorated by
         check_message_valid.
         """
-        print("custom send is getting called")
         is_message_valid(message)
         await super().send(json.dumps(message))
 

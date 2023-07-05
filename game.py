@@ -13,26 +13,30 @@ import constants
 
 
 class Player:
-    def __init__(self, state: Optional[dict[str, Any]]=None) -> None:
+    def __init__(self, state: Optional[dict[str, Any]] = None) -> None:
         if state is not None:
             self.update_state(state)
 
     def update_state(self, state: dict[str, Any]) -> None:
-        # This essentially translates a dict of vars and values to attributes
-        # For instance,
-        #     >>> p = Player()
-        #     >>> p.update_state({"client_id": 0, "name": "foo"})
-        # should be more or less equivalent to
-        #     >>> p = Player()
-        #     >>> p.client_id = 0
-        #     >>> p.name = "foo"
+        """
+        Assign this class's attributes to values corresponding to `state`.
+
+        This essentially translates a dict of vars and values to attributes
+        For instance,
+            >>> p = Player()
+            >>> p.update_state({"client_id": 0, "name": "foo"})
+        should be more or less equivalent to
+            >>> p = Player()
+            >>> p.client_id = 0
+            >>> p.name = "foo"
+        """
         self.__dict__.update(state)
 
 
 class ThisPlayer(Player):
     """The player that is being controlled by this computer."""
 
-    def __init__(self, client: Client, state: Optional[dict[str, Any]]=None) -> None:
+    def __init__(self, client: Client, state: Optional[dict[str, Any]] = None) -> None:
         super().__init__(state)
         self.client = client
 
@@ -69,6 +73,7 @@ class Game:
         self.player = ThisPlayer(self.client, {"name": name})
 
     async def initialize(self) -> None:
+        """Things that can't go in __init__ because they're coros"""
         await self.client.start()
 
     async def handle_message(self, message: dict, tg: asyncio.TaskGroup) -> None:
@@ -76,7 +81,10 @@ class Game:
         match message["type"]:
             case constants.Msg.APPROVE:
                 self.players[message["id"]].update_state(message["state"])
-                print(f"Player {message['id']} state updated with {message['state']}")
+                logger.log(
+                    logging.DEBUG,
+                    f"Player {message['id']} state updated with {message['state']}",
+                )
 
             case constants.Msg.ID:
                 self.players[message["id"]] = self.player

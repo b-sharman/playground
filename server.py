@@ -16,6 +16,7 @@ current_id = 0
 # has the game been started yet?
 game_running = False
 
+
 async def listen_for_start(ws) -> None:
     """Broadcast a START message upon corresponding keyboard entry."""
     global game_running
@@ -54,9 +55,7 @@ class Client:
     """Server's representation of a network client."""
 
     def __init__(
-        self,
-        ws: websockets.server.WebSocketServer,
-        tg: asyncio.TaskGroup
+        self, ws: websockets.server.WebSocketServer, tg: asyncio.TaskGroup
     ) -> None:
         """Warning: only create Client instances within the tg context manager."""
         global current_id
@@ -100,7 +99,9 @@ class Client:
         # prevent new clients from connecting if the game has already started
         if game_running:
             await ws.close()
-            logger.log(logging.INFO, "rejected a player because the game has already started")
+            logger.log(
+                logging.INFO, "rejected a player because the game has already started"
+            )
             return
 
         async with asyncio.TaskGroup() as tg:

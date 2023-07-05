@@ -16,14 +16,21 @@ class Client:
         self.game = game
 
     async def greet(self) -> None:
+        """
+        Send a GREET message to the server.
+
+        This type of message informs the server of the player name.
+        """
         if self.name is None:
             raise NameError("cannot greet when player name has not been set")
         await self.ws.send({"type": constants.Msg.GREET, "name": self.name})
 
     async def send_rq(self, rq: constants.Rq) -> None:
+        """Send an rq-type message to the server."""
         await self.ws.send({"type": constants.Msg.REQUEST, "rq": rq})
 
     async def start(self) -> None:
+        """Attempt to connect to the server and listen for new messages."""
         async with websockets.connect(
             f"ws://localhost:{constants.PORT}", create_protocol=bbutils.BBClientProtocol
         ) as self.ws:
