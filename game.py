@@ -8,7 +8,6 @@ import websockets.server
 
 import aioconsole
 
-import bbutils
 from client import Client
 import constants
 
@@ -60,33 +59,40 @@ class ThisPlayer(Player):
             await self.client.send_rq(rq)
 
 
-async def main() -> None:
-    async with websockets.connect(
-        f"ws://localhost:{constants.PORT}", create_protocol=bbutils.BBClientProtocol
-    ) as ws:
-        players: dict[int, Player] = {}
+class Game:
+    def __init__(self) -> None:
+        # TODO: allow creating a client before receiving a name
         name = input("Enter your name: ")
-        client = Client(ws, name)
-        player = ThisPlayer(client, {"name": name})
+        self.client = Client(name, self)
 
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(client.greet())
+        self.players: dict[int, Player] = {}
+        self.player = ThisPlayer(self.client, {"name": name})
 
-            while True:
-                # waits until data is received from the server
-                message = json.loads(await ws.recv())
-                match message["type"]:
-                    case constants.Msg.APPROVE:
-                        players[message["id"]].update_state(message["state"])
-                        print(f"Player {message['id']} state updated with {message['state']}")
-                    case constants.Msg.ID:
-                        players[message["id"]] = player
-                    case constants.Msg.START:
-                        print("Starting now!")
-                        for client_id, state in message["states"]:
-                            players[client_id] = Player(state)
-                        # start listening for keyboard input
-                        tg.create_task(player.start())
+    async def initialize(self) -> None:
+        await self.client.start()
+
+    async def handle_message(self, message: dict, tg: asyncio.TaskGroup) -> None:
+        """Handle a JSON-loaded dict network message."""
+        match message["type"]:
+            case constants.Msg.APPROVE:
+                self.players[message["id"]].update_state(message["state"])
+                print(f"Player {message['id']} state updated with {message['state']}")
+
+            case constants.Msg.ID:
+                self.players[message["id"]] = self.player
+
+            case constants.Msg.START:
+                print("Starting now!")
+                for client_id, state in message["states"]:
+                    self.players[client_id] = Player(state)
+                # start listening for keyboard input
+                tg.create_task(self.player.start())
+
+
+async def main() -> None:
+    game = Game()
+    # there are two initializing functions because __init__ can't be a coro
+    await game.initialize()
 
 
 if __name__ == "__main__":
