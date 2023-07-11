@@ -29,10 +29,10 @@ class Client:
         """Send an rq-type message to the server."""
         await self.ws.send({"type": constants.Msg.REQUEST, "rq": rq})
 
-    async def start(self) -> None:
+    async def start(self, ip: str) -> None:
         """Attempt to connect to the server and listen for new messages."""
         async with websockets.connect(
-            f"ws://localhost:{constants.PORT}", create_protocol=bbutils.BBClientProtocol
+            f"ws://{ip}:{constants.PORT}", create_protocol=bbutils.BBClientProtocol
         ) as self.ws:
             async with asyncio.TaskGroup() as tg:
                 tg.create_task(self.greet())

@@ -120,9 +120,15 @@ class Client:
 
 
 async def main() -> None:
+    try:
+        ip = bbutils.get_local_ip()
+    except RuntimeError as m:
+        logger.log(logging.ERROR, m)
+        exit()
+
     async with websockets.serve(
         Client.handle_new_connection,
-        "localhost",
+        ip,
         constants.PORT,
         create_protocol=bbutils.BBServerProtocol,
         ping_interval=5,

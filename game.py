@@ -2,6 +2,8 @@ import asyncio
 import json
 import logging
 from typing import Any, Optional
+import socket
+import sys
 import websockets
 import websockets.client
 import websockets.server
@@ -72,9 +74,9 @@ class Game:
         self.players: dict[int, Player] = {}
         self.player = ThisPlayer(self.client, {"name": name})
 
-    async def initialize(self) -> None:
+    async def initialize(self, ip) -> None:
         """Things that can't go in __init__ because they're coros"""
-        await self.client.start()
+        await self.client.start(ip)
 
     async def handle_message(self, message: dict, tg: asyncio.TaskGroup) -> None:
         """Handle a JSON-loaded dict network message."""
@@ -98,9 +100,20 @@ class Game:
 
 
 async def main() -> None:
+    print(sys.argv)
     game = Game()
-    # there are two initializing functions because __init__ can't be a coro
-    await game.initialize()
+
+    if len(sys.argv) < 1:
+        logger.log(logging.ERROR, f"must specify an IP address")
+        exit()
+
+    # initialize the game, which currently equates to starting the client connection
+    ip = sys.argv[-1]
+    try:
+        await game.initialize(ip)
+    except (socket.gaierror, OSError):
+        logger.log(logging.ERROR, f"invalid IP address {ip}")
+        exit()
 
 
 if __name__ == "__main__":

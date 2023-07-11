@@ -7,6 +7,7 @@ import websockets.client
 import websockets.server
 
 import constants
+import socket
 
 Message = NewType("Message", dict)
 
@@ -61,6 +62,22 @@ def is_message_valid(message: Message) -> None:
         # REQUEST must have rq
         case constants.Msg.REQUEST if "rq" not in message:
             raise ValueError("REQUEST message does not have rq")
+
+
+def get_local_ip():
+    """Return the computer's local IP address."""
+    # based on https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        # The following raises socket.error if not connected to Internet
+        # Wrote a simple try-except to get around.
+        try:
+            s.connect(("8.8.8.8", 80))
+        except (socket.error, OSError):
+            raise RuntimeError(
+                "Connection didn't work; are you connected to the internet?"
+            )
+        else:
+            return s.getsockname()[0]
 
 
 class _BBSharedProtocol:
