@@ -100,7 +100,6 @@ class Game:
 
 
 async def main() -> None:
-    print(sys.argv)
     game = Game()
 
     if len(sys.argv) < 1:
