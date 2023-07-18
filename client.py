@@ -1,10 +1,6 @@
 import asyncio
 import json
-import logging
-from typing import Any, Optional
 import websockets
-import websockets.client
-import websockets.server
 
 import bbutils
 import constants
