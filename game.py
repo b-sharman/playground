@@ -14,7 +14,8 @@ from client import Client
 import constants
 
 
-class Player:
+class PlayerData:
+    """Class that updates its __dict__ from data coming over the network."""
     def __init__(self, state: Optional[dict[str, Any]] = None) -> None:
         if state is not None:
             self.update_state(state)
@@ -25,21 +26,20 @@ class Player:
 
         This essentially translates a dict of vars and values to attributes
         For instance,
-            >>> p = Player()
+            >>> p = PlayerData()
             >>> p.update_state({"client_id": 0, "name": "foo"})
         should be more or less equivalent to
-            >>> p = Player()
+            >>> p = PlayerData()
             >>> p.client_id = 0
             >>> p.name = "foo"
         """
         self.__dict__.update(state)
 
 
-class ThisPlayer(Player):
-    """The player that is being controlled by this computer."""
+class PlayerInputHandler:
+    """The player being controlled by this computer."""
 
-    def __init__(self, client: Client, state: Optional[dict[str, Any]] = None) -> None:
-        super().__init__(state)
+    def __init__(self, client: Client) -> None:
         self.client = client
 
     async def start(self) -> None:
@@ -69,12 +69,15 @@ class Game:
     def __init__(self) -> None:
         self.client = Client(self)
 
-        self.players: dict[int, Player] = {}
-        self.player = ThisPlayer(self.client)
+        self.players: dict[int, PlayerData] = {}
+
+        self.input_handler = PlayerInputHandler(self.client)
+        # id of the player playing on this computer
+        # assigned upon receiving an ID message
+        self.player_id = None
 
     async def assign_name(self) -> None:
         name = await aioconsole.ainput("Enter your name: ")
-        self.player.update_state({"name": name})
         await self.client.greet(name)
 
     async def initialize(self, ip) -> None:
@@ -88,18 +91,18 @@ class Game:
                 self.players[message["id"]].update_state(message["state"])
                 logger.log(
                     logging.DEBUG,
-                    f"Player {message['id']} state updated with {message['state']}",
+                    f"PlayerData {message['id']} state updated with {message['state']}",
                 )
 
             case constants.Msg.ID:
-                self.players[message["id"]] = self.player
+                self.player_id = message["id"]
 
             case constants.Msg.START:
                 print("Starting now!")
                 for client_id, state in message["states"]:
-                    self.players[client_id] = Player(state)
+                    self.players[client_id] = PlayerData(state)
                 # start listening for keyboard input
-                tg.create_task(self.player.start())
+                tg.create_task(self.input_handler.start())
 
 
 async def main() -> None:
