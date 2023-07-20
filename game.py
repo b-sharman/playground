@@ -67,12 +67,15 @@ class ThisPlayer(Player):
 
 class Game:
     def __init__(self) -> None:
-        # TODO: allow creating a client before receiving a name
-        name = input("Enter your name: ")
-        self.client = Client(name, self)
+        self.client = Client(self)
 
         self.players: dict[int, Player] = {}
-        self.player = ThisPlayer(self.client, {"name": name})
+        self.player = ThisPlayer(self.client)
+
+    async def assign_name(self) -> None:
+        name = await aioconsole.ainput("Enter your name: ")
+        self.player.update_state({"name": name})
+        await self.client.greet(name)
 
     async def initialize(self, ip) -> None:
         """Things that can't go in __init__ because they're coros"""

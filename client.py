@@ -7,19 +7,16 @@ import constants
 
 
 class Client:
-    def __init__(self, name: str, game: "game.Game") -> None:
-        self.name = name
+    def __init__(self, game: "game.Game") -> None:
         self.game = game
 
-    async def greet(self) -> None:
+    async def greet(self, name: str) -> None:
         """
         Send a GREET message to the server.
 
         This type of message informs the server of the player name.
         """
-        if self.name is None:
-            raise NameError("cannot greet when player name has not been set")
-        await self.ws.send({"type": constants.Msg.GREET, "name": self.name})
+        await self.ws.send({"type": constants.Msg.GREET, "name": name})
 
     async def send_rq(self, rq: constants.Rq) -> None:
         """Send an rq-type message to the server."""
@@ -31,7 +28,7 @@ class Client:
             f"ws://{ip}:{constants.PORT}", create_protocol=bbutils.BBClientProtocol
         ) as self.ws:
             async with asyncio.TaskGroup() as tg:
-                tg.create_task(self.greet())
+                tg.create_task(self.game.assign_name())
 
                 while True:
                     # waits until data is received from the server

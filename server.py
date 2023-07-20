@@ -26,7 +26,14 @@ async def listen_for_start(ws) -> None:
     while output != constants.SERVER_START_KEYWORD:
         output = await aioconsole.ainput()
 
-    logger.log(logging.INFO, "received start message")
+        # cannot start if not all players have submitted names yet
+        if (nameless_count := ["name" in c.state for c in CLIENTS].count(False)) > 0:
+            print(
+                f"Cannot start; {nameless_count} {'players have' if nameless_count > 1 else 'player has'} not submitted their name"
+            )
+            # do not exit the while loop
+            output = None
+
     game_running = True
     message_all(
         {
