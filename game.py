@@ -108,7 +108,7 @@ class Game:
 async def main() -> None:
     game = Game()
 
-    if len(sys.argv) < 1:
+    if len(sys.argv) < 2:
         logger.log(logging.ERROR, f"must specify an IP address")
         exit()
 
