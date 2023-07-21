@@ -16,6 +16,7 @@ import constants
 
 class PlayerData:
     """Class that updates its __dict__ from data coming over the network."""
+
     def __init__(self, state: Optional[dict[str, Any]] = None) -> None:
         if state is not None:
             self.update_state(state)
