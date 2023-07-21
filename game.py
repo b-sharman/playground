@@ -117,7 +117,7 @@ async def main() -> None:
     try:
         await game.initialize(ip)
     except (socket.gaierror, OSError):
-        logger.log(logging.ERROR, f"invalid IP address {ip}")
+        logger.log(logging.ERROR, f"could not connect to {ip}")
         exit()
 
 
