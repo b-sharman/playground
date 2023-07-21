@@ -28,9 +28,24 @@ class Client:
             f"ws://{ip}:{constants.PORT}", create_protocol=bbutils.BBClientProtocol
         ) as self.ws:
             async with asyncio.TaskGroup() as tg:
-                tg.create_task(self.game.assign_name())
+                created_name_task = False
 
                 while True:
-                    # waits until data is received from the server
-                    message = json.loads(await self.ws.recv())
+                    try:
+                        # waits until data is received from the server
+                        message = json.loads(await self.ws.recv())
+                    except websockets.exceptions.ConnectionClosed:
+                        if not created_name_task:
+                            print(
+                                "There was an error when trying to connect to the server. This probably means that the game has already started."
+                            )
+                        else:
+                            print("The server disconnected unexpectedly.")
+                        exit()
+
+                    # placing the following block here guarantees that the "Enter your name:" text will not be displayed if there is a server error
+                    if not created_name_task:
+                        tg.create_task(self.game.assign_name())
+                        created_name_task = True
+
                     await self.game.handle_message(message, tg)
