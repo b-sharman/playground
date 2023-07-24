@@ -93,10 +93,13 @@ class Server:
             await asyncio.Future()  # run forever
 
     def get_next_id(self) -> int:
+        """Return a unique integer ID for the next connected client."""
         self.current_id += 1
         return self.current_id
 
-    async def handle_new_connection(self, ws: websockets.server.WebSocketServer) -> None:
+    async def handle_new_connection(
+        self, ws: websockets.server.WebSocketServer
+    ) -> None:
         """Start server communications with ws and add ws to self.clients."""
         # prevent new clients from connecting if the game has already started
         if self.game_running:
@@ -126,7 +129,7 @@ class Server:
         websockets.broadcast([c.ws for c in self.clients], data)
         logging.debug(f"broadcasted the following: {data}")
 
-    def start_game(self):
+    def start_game(self) -> None:
         """
         Call this method when the game starts.
 

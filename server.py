@@ -8,6 +8,7 @@ import aioconsole
 import constants
 import server_network
 
+
 class Server:
     def __init__(self) -> None:
         self.server = server_network.Server()
@@ -23,8 +24,10 @@ class Server:
         output = None
         while output != constants.SERVER_START_KEYWORD:
             output = await aioconsole.ainput()
-            # cannot start if not all players have submitted names yet
-            if (nameless_count := ["name" in c.state for c in self.server.clients].count(False)) > 0:
+            # how many players have not submitted their names yet?
+            nameless_count = ["name" in c.state for c in self.server.clients].count(False)
+            if nameless_count > 0:
+                # cannot start until all players have submitted names
                 print(
                     f"Cannot start; {nameless_count} {'players have' if nameless_count > 1 else 'player has'} not submitted their name"
                 )
@@ -38,6 +41,7 @@ class Server:
 async def main() -> None:
     server = Server()
     await server.initialize()
+
 
 if __name__ == "__main__":
     logger = logging.getLogger("websockets")
