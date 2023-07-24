@@ -1,3 +1,5 @@
+"""The part of the server that moves data around."""
+
 import asyncio
 import json
 import logging
@@ -9,69 +11,23 @@ import aioconsole
 import bbutils
 import constants
 
-CLIENTS = set()
-
-current_id = 0
-
-# has the game been started yet?
-game_running = False
-
-
-async def listen_for_start(ws) -> None:
-    """Broadcast a START message upon corresponding keyboard entry."""
-    global game_running
-
-    print(f"Type '{constants.SERVER_START_KEYWORD}' at any time to start the game.")
-    output = None
-    while output != constants.SERVER_START_KEYWORD:
-        output = await aioconsole.ainput()
-
-        # cannot start if not all players have submitted names yet
-        if (nameless_count := ["name" in c.state for c in CLIENTS].count(False)) > 0:
-            print(
-                f"Cannot start; {nameless_count} {'players have' if nameless_count > 1 else 'player has'} not submitted their name"
-            )
-            # do not exit the while loop
-            output = None
-
-    game_running = True
-    message_all(
-        {
-            "type": constants.Msg.START,
-            "states": [(c.client_id, c.state) for c in CLIENTS],
-        }
-    )
-
-
-def message_all(message: bbutils.Message) -> None:
-    """
-    Serialize message to JSON and broadcast it to all clients.
-
-    Clients are stored in the global CLIENTS set.
-    """
-    # Check for message validity - raises ValueError if not valid
-    bbutils.is_message_valid(message)
-
-    logger.log(logging.DEBUG, f"{CLIENTS=}")
-    data = json.dumps(message)
-    websockets.broadcast([c.ws for c in CLIENTS], data)
-    logger.log(logging.DEBUG, f"broadcasted the following: {data}")
-
 
 class Client:
     """Server's representation of a network client."""
 
     def __init__(
-        self, ws: websockets.server.WebSocketServer, tg: asyncio.TaskGroup
+        self,
+        server: "Server",
+        ws: websockets.server.WebSocketServer,
+        tg: asyncio.TaskGroup,
     ) -> None:
         """Warning: only create Client instances within the tg context manager."""
-        global current_id
+
+        self.server = server
+        self.ws = ws
 
         # assign this client a unique id
-        self.client_id = current_id
-        current_id += 1
-
-        self.ws = ws
+        self.client_id = self.server.get_next_id()
 
         # server.Client.state is mirrored by client.Player.__dict__
         self.state: dict[str, Any] = {}
@@ -82,15 +38,18 @@ class Client:
     async def handler(self) -> None:
         """Listen for messages coming in from client ws."""
         async for json_message in self.ws:
+            # convert JSON string to dict
             message = json.loads(json_message)
+
             match message["type"]:
                 case constants.Msg.GREET:
                     # TODO: find some way to prevent name collision
                     #       (i.e., more than one player requesting the same name)
                     self.state["name"] = message["name"]
                     print(f"{message['name']} has joined.")
+
                 case constants.Msg.REQUEST:
-                    message_all(
+                    self.server.message_all(
                         {
                             "type": constants.Msg.APPROVE,
                             "id": self.client_id,
@@ -98,13 +57,46 @@ class Client:
                         }
                     )
 
-    @staticmethod
-    async def handle_new_connection(ws: websockets.server.WebSocketServer) -> None:
-        """Start server communications with ws and add ws to CLIENTS."""
-        global CLIENTS
 
+class Server:
+    def __init__(self) -> None:
+        try:
+            self.ip = bbutils.get_local_ip()
+        except RuntimeError as m:
+            logger.log(logging.ERROR, m)
+            exit()
+
+        # has the game been started yet?
+        self.game_running = False
+
+        self.clients: set[Client] = set()
+
+        # the id that will be assigned to the next client
+        # can't do something as simple as len(self.clients) because a client might
+        # disconnect and rejoin
+        self.current_id = -1
+
+    async def initialize(self) -> None:
+        """Code that should go in __init__ but needs to be awaited."""
+        async with websockets.serve(
+            self.handle_new_connection,
+            self.ip,
+            constants.PORT,
+            create_protocol=bbutils.BBServerProtocol,
+            ping_interval=5,
+            ping_timeout=10,
+        ) as server:
+            await asyncio.create_task(self.listen_for_start(server))
+            await asyncio.Future()  # run forever
+
+    def get_next_id(self):
+        self.current_id += 1
+        return self.current_id
+
+    async def handle_new_connection(self, ws: websockets.server.WebSocketServer) -> None:
+        """Start server communications with ws and add ws to self.clients."""
         # prevent new clients from connecting if the game has already started
-        if game_running:
+        if self.game_running:
             await ws.close()
             logger.log(
                 logging.INFO, "rejected a player because the game has already started"
@@ -112,38 +104,56 @@ class Client:
             return
 
         async with asyncio.TaskGroup() as tg:
-            # add ws to the CLIENTS set and remove it upon disconnect
-            client = Client(ws, tg)
+            # add ws to the self.clients set and remove it upon disconnect
+            client = Client(self, ws, tg)
+            self.clients.add(client)
+            logger.log(logging.DEBUG, f"added player with id {client.client_id}")
             # Unfortunately, the following line cannot be in Client.__init__ because
             # __init__ can't be a coroutine
             await client.ws.send({"type": constants.Msg.ID, "id": client.client_id})
-            CLIENTS.add(client)
-            logger.log(logging.DEBUG, f"added player with id {client.client_id}")
             try:
                 await client.ws.wait_closed()
             finally:
-                CLIENTS.remove(client)
+                self.clients.remove(client)
                 logger.log(logging.DEBUG, f"removed player with id {client.client_id}")
+
+    async def listen_for_start(self, ws) -> None:
+        """Broadcast a START message upon corresponding keyboard entry."""
+        print(f"Type '{constants.SERVER_START_KEYWORD}' at any time to start the game.")
+
+        output = None
+        while output != constants.SERVER_START_KEYWORD:
+            output = await aioconsole.ainput()
+            # cannot start if not all players have submitted names yet
+            if (nameless_count := ["name" in c.state for c in self.clients].count(False)) > 0:
+                print(
+                    f"Cannot start; {nameless_count} {'players have' if nameless_count > 1 else 'player has'} not submitted their name"
+                )
+                # do not exit the while loop
+                output = None
+
+        self.game_running = True
+        self.message_all(
+            {
+                "type": constants.Msg.START,
+                "states": [(c.client_id, c.state) for c in self.clients],
+            }
+        )
+
+    def message_all(self, message: bbutils.Message) -> None:
+        """Serialize message to JSON and broadcast it to all members of self.clients."""
+        # check for message validity - raises ValueError if not valid
+        bbutils.is_message_valid(message)
+
+        # turn the bbutils.Message into a JSON-formated str
+        data = json.dumps(message)
+        websockets.broadcast([c.ws for c in self.clients], data)
+        logger.log(logging.DEBUG, f"broadcasted the following: {data}")
 
 
 async def main() -> None:
-    try:
-        ip = bbutils.get_local_ip()
-    except RuntimeError as m:
-        logger.log(logging.ERROR, m)
-        exit()
-
-    async with websockets.serve(
-        Client.handle_new_connection,
-        ip,
-        constants.PORT,
-        create_protocol=bbutils.BBServerProtocol,
-        ping_interval=5,
-        ping_timeout=10,
-    ) as server:
-        await asyncio.create_task(listen_for_start(server))
-        await asyncio.Future()  # run forever
-
+    server = Server()
+    await server.initialize()
 
 if __name__ == "__main__":
     logger = logging.getLogger("websockets")
