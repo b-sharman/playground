@@ -34,6 +34,10 @@ class Client:
         # start listening to messages coming in from the client
         handler = tg.create_task(self.handler())
 
+    async def initialize(self) -> None:
+        """Code that should go in __init__ but needs to be awaited."""
+        await self.ws.send({"type": constants.Msg.ID, "id": self.client_id})
+
     async def handler(self) -> None:
         """Listen for messages coming in from client ws."""
         async for json_message in self.ws:
@@ -103,11 +107,9 @@ class Server:
         async with asyncio.TaskGroup() as tg:
             # add ws to the self.clients set and remove it upon disconnect
             client = Client(self, ws, tg)
+            await client.initialize()
             self.clients.add(client)
             logging.debug(f"added player with id {client.client_id}")
-            # Unfortunately, the following line cannot be in Client.__init__ because
-            # __init__ can't be a coroutine
-            await client.ws.send({"type": constants.Msg.ID, "id": client.client_id})
             try:
                 await client.ws.wait_closed()
             finally:
